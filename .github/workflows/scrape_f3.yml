@@ -17,13 +17,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Python dependencies
+      - name: Install dependencies & Playwright Chromium
         run: |
           python -m pip install --upgrade pip
           pip install playwright gspread google-auth
-
-      - name: Install Playwright Browser
-        uses: microsoft/playwright-github-action@v4
+          playwright install --with-deps chromium
 
       - name: Create credentials file
         run: |
