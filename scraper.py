@@ -10,7 +10,6 @@ def scrape_f3_stats():
     with sync_playwright() as p:
         print("Launching Chromium browser...")
         browser = p.chromium.launch(headless=True)
-        # Use a standard desktop viewport size so Streamlit renders fully
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         
         print(f"Navigating to {url}...")
@@ -20,26 +19,46 @@ def scrape_f3_stats():
         time.sleep(5)
         
         print("Selecting 'shipyard' from the PAX dropdown...")
-        try:
-            # Target the Streamlit selectbox / combobox component
-            combobox = page.locator('div[data-baseweb="select"]').first
-            combobox.click()
-            time.sleep(1)
+        selected = False
+        
+        # Try multiple robust selectors for the Streamlit dropdown
+        selectors = [
+            'div[data-baseweb="select"]',
+            '[data-testid="stSelectbox"]',
+            '[role="combobox"]'
+        ]
+        
+        for sel in selectors:
+            try:
+                elem = page.locator(sel).first
+                if elem.is_visible(timeout=5000):
+                    elem.click()
+                    time.sleep(1)
+                    page.keyboard.type("shipyard")
+                    page.keyboard.press("Enter")
+                    print(f"Successfully interacted with dropdown using selector: {sel}")
+                    selected = True
+                    break
+            except Exception as e:
+                print(f"Selector {sel} attempt failed: {e}")
+                
+        if not selected:
+            print("Warning: Could not find dropdown via standard selectors. Attempting direct keyboard focus...")
+            try:
+                page.keyboard.press("Tab")
+                page.keyboard.type("shipyard")
+                page.keyboard.press("Enter")
+            except Exception as e:
+                print(f"Fallback keyboard navigation failed: {e}")
             
-            # Type 'shipyard' and hit Enter to filter stats for Shipyard
-            page.keyboard.type("shipyard")
-            page.keyboard.press("Enter")
-            
-            # Allow time for Streamlit to fetch data and re-render metrics
-            print("Waiting for stats to update after selection...")
-            time.sleep(6)
-        except Exception as e:
-            print(f"Warning during dropdown selection: {e}")
+        # Allow time for Streamlit to fetch data and re-render metrics
+        print("Waiting for stats to update after selection...")
+        time.sleep(6)
             
         posts, qs = None, None
         
         # Extract metrics from the page
-        for attempt in range(5):
+        for attempt in range(8):
             metrics = page.locator('[data-testid="stMetric"]').all()
             if metrics:
                 for metric in metrics:
@@ -82,7 +101,7 @@ def update_google_sheet():
         ws1.update('B4', [[qs]])
         print(f"Updated Sheet1 A4 -> {posts}, B4 -> {qs}")
         
-        # 2. Append history log to Main tab to match your tracking history
+        # 2. Append history log to Main tab
         try:
             ws_main = sheet.worksheet("Main")
             now = datetime.now()
