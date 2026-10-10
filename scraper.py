@@ -14,33 +14,17 @@ def scrape_f3_stats():
         
         print(f"Navigating to {url}...")
         page.goto(url, wait_until="networkidle", timeout=60000)
-        time.sleep(5)
         
-        print("Attempting to select 'shipyard'...")
-        try:
-            # Click the Streamlit combobox directly using standard Playwright selectors
-            page.locator('[role="combobox"]').first.click(force=True, timeout=10000)
-            time.sleep(1)
-            page.keyboard.type("shipyard")
-            page.keyboard.press("Enter")
-            print("Successfully selected 'shipyard'.")
-        except Exception as e:
-            print(f"Primary combobox click note: {e}. Trying fallback selector...")
-            try:
-                page.locator('div[data-baseweb="select"]').first.click(force=True, timeout=5000)
-                time.sleep(1)
-                page.keyboard.type("shipyard")
-                page.keyboard.press("Enter")
-                print("Fallback selection successful.")
-            except Exception as e2:
-                print(f"Fallback selection note: {e2}")
-            
-        print("Waiting for stats to compute and render...")
-        time.sleep(8)
+        # Wait for Streamlit application shell to load
+        print("Waiting for Streamlit app to render...")
+        page.wait_for_selector('[data-testid="stApp"]', timeout=30000)
+        
+        # Give ample time for WebSocket data to populate the DOM
+        time.sleep(12)
         
         posts, qs = None, None
         
-        # Scrape metrics cards with retry loop
+        # Loop to check for metric cards on the page
         for attempt in range(10):
             metrics = page.locator('[data-testid="stMetric"]').all()
             if metrics:
@@ -61,12 +45,12 @@ def scrape_f3_stats():
                 if posts is not None and qs is not None:
                     print(f"SUCCESS: Found stats -> Posts: {posts}, Q's: {qs}")
                     break
-            time.sleep(2)
+            time.sleep(3)
             
         browser.close()
         
         if posts is None or qs is None:
-            raise ValueError(f"Could not find metric numbers on page. Posts={posts}, Q's={qs}")
+            raise ValueError("Could not locate metric numbers on the Streamlit page.")
             
         return posts, qs
 
