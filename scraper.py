@@ -14,21 +14,31 @@ def scrape_f3_stats():
         
         print(f"Navigating to {url}...")
         page.goto(url, wait_until="networkidle", timeout=60000)
-        time.sleep(4)
+        time.sleep(6) # Allow Streamlit full hydration time
         
         print("Attempting to select 'shipyard'...")
         try:
-            combobox = page.locator('[data-baseweb="select"], [data-testid="stSelectbox"], [role="combobox"]').first
-            combobox.click()
-            time.sleep(1)
+            # Force click the select container, bypassing overlay restrictions
+            select_box = page.locator('div[data-baseweb="select"]').first
+            select_box.click(force=True, timeout=10000)
+            time.sleep(1.5)
+            
+            # Type shipyard and press enter
             page.keyboard.type("shipyard")
             page.keyboard.press("Enter")
-            print("Successfully selected 'shipyard'.")
+            print("Successfully interacted with select box.")
         except Exception as e:
-            print(f"Dropdown interaction note: {e}")
+            print(f"Primary select click note: {e}. Trying fallback...")
+            try:
+                page.get_by_label("Select a PAX").click(force=True)
+                time.sleep(1)
+                page.keyboard.type("shipyard")
+                page.keyboard.press("Enter")
+            except Exception as e2:
+                print(f"Fallback select note: {e2}")
             
-        print("Waiting for data to render...")
-        time.sleep(6)
+        print("Waiting for stats to render...")
+        time.sleep(8) # Wait for stats calculation after filter change
         
         posts, qs = None, None
         
