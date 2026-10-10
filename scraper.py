@@ -13,38 +13,54 @@ def scrape_f3_stats():
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         
         print(f"Navigating to {url}...")
-        page.goto(url, wait_until="networkidle", timeout=60000)
-        time.sleep(6) # Allow Streamlit full hydration time
+        page.goto(url, wait_until="load", timeout=60000)
         
-        print("Attempting to select 'shipyard'...")
-        try:
-            # Force click the select container, bypassing overlay restrictions
-            select_box = page.locator('div[data-baseweb="select"]').first
-            select_box.click(force=True, timeout=10000)
-            time.sleep(1.5)
-            
-            # Type shipyard and press enter
-            page.keyboard.type("shipyard")
-            page.keyboard.press("Enter")
-            print("Successfully interacted with select box.")
-        except Exception as e:
-            print(f"Primary select click note: {e}. Trying fallback...")
-            try:
-                page.get_by_label("Select a PAX").click(force=True)
-                time.sleep(1)
-                page.keyboard.type("shipyard")
-                page.keyboard.press("Enter")
-            except Exception as e2:
-                print(f"Fallback select note: {e2}")
-            
-        print("Waiting for stats to render...")
-        time.sleep(8) # Wait for stats calculation after filter change
+        # Give Streamlit ample time to establish its WebSocket and render the UI
+        print("Waiting for Streamlit app hydration...")
+        time.sleep(8)
+        
+        print("Interacting with the PAX dropdown via JavaScript DOM query...")
+        # Execute native JS to find and click the combobox element reliably
+        clicked = page.evaluate('''() => {
+            // Search for Streamlit combobox role or select elements
+            const comboboxes = document.querySelectorAll('[role="combobox"]');
+            if (comboboxes.length > 0) {
+                comboboxes[0].click();
+                return true;
+            }
+            // Fallback to baseweb select container
+            const selects = document.querySelectorAll('[data-baseweb="select"]');
+            if (selects.length > 0) {
+                selects[0].click();
+                return true;
+            }
+            return false;
+        ''')
+        
+        print(f"Dropdown click executed: {clicked}")
+        time.sleep(2)
+        
+        # Type the PAX name and confirm
+        print("Typing 'shipyard'...")
+        page.keyboard.type("shipyard")
+        page.keyboard.press("Enter")
+        
+        # Wait for Streamlit to re-calculate and render the updated metrics
+        print("Waiting for stats to compute and render...")
+        time.sleep(8)
         
         posts, qs = None, None
         
-        # Scrape metrics cards
-        for attempt in range(10):
+        # Scrape metric cards with retry loop
+        for attempt in range(12):
             metrics = page.locator('[data-testid="stMetric"]').all()
+            if not metrics:
+                # Check inside any frames if nested
+                for frame in page.frames:
+                    metrics = frame.locator('[data-testid="stMetric"]').all()
+                    if metrics:
+                        break
+                        
             if metrics:
                 for metric in metrics:
                     try:
@@ -61,9 +77,9 @@ def scrape_f3_stats():
                         pass
                 
                 if posts is not None and qs is not None:
-                    print(f"Found stats -> Posts: {posts}, Q's: {qs}")
+                    print(f"SUCCESS: Found stats -> Posts: {posts}, Q's: {qs}")
                     break
-            time.sleep(2)
+            time.sleep(2.5)
             
         browser.close()
         
@@ -75,8 +91,9 @@ def scrape_f3_stats():
 def update_google_sheet():
     posts, qs = scrape_f3_stats()
     
-    print("Updating Google Sheet...")
+    print("Connecting to Google Sheets...")
     gc = gspread.service_account(filename='credentials.json')
+    # Using your target spreadsheet ID
     sheet = gc.open_by_key("11eASIqkZB6Bs5lNf44K3GPZ9vStgzYATcqLDH9s3L4I")
     
     # 1. Update Sheet1 cells A4 (Posts) and B4 (Qs)
