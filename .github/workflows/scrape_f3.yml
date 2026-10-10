@@ -2,8 +2,8 @@ name: Scrape F3 Stats
 
 on:
   schedule:
-    - cron: '0 8 * * *' # Runs every day at 8:00 AM UTC (adjust as needed)
-  workflow_dispatch: # Allows you to run it manually anytime from the GitHub UI
+    - cron: '0 8 * * *' # Runs every day at 8:00 AM UTC
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -15,7 +15,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
@@ -23,7 +23,7 @@ jobs:
           pip install playwright gspread google-auth
           playwright install --with-deps chromium
 
-      - name: Create credentials file from GitHub Secret
+      - name: Create credentials file
         run: |
           echo "${{ secrets.GCP_SA_KEY }}" > credentials.json
 
