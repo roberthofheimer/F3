@@ -5,82 +5,100 @@ import gspread
 from datetime import datetime
 
 def scrape_f3_stats():
-    url = "https://f3southcary.com/stats/#/pax?range=month&name=Shipyard"
+    # Direct Streamlit app URL to avoid outer iframe wrapper delays
+    url = "https://f3southcary-aohealth.streamlit.app/~/+/pax?range=month&name=Shipyard"
     
     with sync_playwright() as p:
+        print("Launching Chromium browser...")
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(url, wait_until="networkidle")
+        context = browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        page = context.new_page()
         
-        # Wait for Streamlit components to fully render and hydrate
-        print("Waiting for Streamlit components to load...")
-        page.wait_for_selector('[data-testid="stMetric"]', timeout=20000)
-        time.sleep(4) # Extra buffer for hash routing data fetch
+        print(f"Navigating to {url}...")
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
         
-        posts = None
-        qs = None
+        # Streamlit websocket connection load wait
+        print("Waiting for Streamlit app to render content...")
         
-        # Streamlit metric cards structure
-        metrics = page.locator('[data-testid="stMetric"]').all()
-        for metric in metrics:
+        # Try both direct page selector or nested frame selector
+        posts, qs = None, None
+        
+        for attempt in range(15): # Loop up to ~30 seconds waiting for data
+            time.sleep(2)
             try:
-                label = metric.locator('[data-testid="stMetricLabel"]').inner_text().strip().lower()
-                value = metric.locator('[data-testid="stMetricValue"]').inner_text().strip()
-                print(f"Found metric -> Label: '{label}', Value: '{value}'")
-                
-                if 'post' in label:
-                    posts = int(value)
-                elif 'q' in label:
-                    qs = int(value)
+                # Target all metric elements on the page or inside frames
+                metrics = page.locator('[data-testid="stMetric"]').all()
+                if not metrics:
+                    # Look inside iframe if nested
+                    for frame in page.frames:
+                        metrics = frame.locator('[data-testid="stMetric"]').all()
+                        if metrics:
+                            break
+                            
+                if metrics:
+                    for metric in metrics:
+                        text = metric.inner_text()
+                        print(f"Found card text: {repr(text)}")
+                        lines = [line.strip() for line in text.split('\n') if line.strip()]
+                        
+                        if len(lines) >= 2:
+                            label = lines[0].lower()
+                            val_str = lines[1]
+                            if 'post' in label and val_str.isdigit():
+                                posts = int(val_str)
+                            elif 'q' in label and val_str.isdigit():
+                                qs = int(val_str)
+                                
+                    if posts is not None and qs is not None:
+                        print(f"SUCCESS: Extracted Posts={posts}, Q's={qs}")
+                        break
             except Exception as e:
-                print(f"Skipping a metric element: {e}")
+                print(f"Attempt {attempt + 1} checking DOM failed: {e}")
                 
         browser.close()
         
         if posts is None or qs is None:
-            raise ValueError(f"Could not locate Posts ({posts}) or Q's ({qs}) on the Streamlit page.")
+            raise ValueError(f"Failed to scrape values. Extracted Posts={posts}, Q's={qs}")
             
         return posts, qs
 
 def update_google_sheet():
     try:
         posts, qs = scrape_f3_stats()
-        print(f"Successfully scraped -> Posts: {posts}, Q's: {qs}")
         
-        # Authenticate with Google Sheets using the GitHub Secret
+        print("Connecting to Google Sheets...")
         gc = gspread.service_account(filename='credentials.json')
-        
-        # Open your Google Sheet by its unique ID
         spreadsheet_id = "11eASIqkZB6Bs5lNf44K3GPZ9vStgzYATcqLDH9s3L4I"
         sheet = gc.open_by_key(spreadsheet_id)
         
-        # 1. Update Sheet1 current values (A4 for Posts, B4 for Q's based on your sheet layout)
-        worksheet_sheet1 = sheet.worksheet("Sheet1")
-        worksheet_sheet1.update('A4', [[posts]])
-        worksheet_sheet1.update('B4', [[qs]])
-        print("Updated Sheet1 cells A4 and B4 successfully.")
+        # 1. Update Sheet1
+        ws1 = sheet.worksheet("Sheet1")
+        ws1.update('A4', [[posts]])
+        ws1.update('B4', [[qs]])
+        print(f"Updated Sheet1 A4 -> {posts}, B4 -> {qs}")
         
-        # 2. (Optional) Append history log to your 'Main' tab just like Browse.ai did
+        # 2. Append history log to Main tab
         try:
-            worksheet_main = sheet.worksheet("Main")
-            today_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-            date_only = datetime.now().strftime("%Y-%m-%d")
-            worksheet_main.append_row([
+            ws_main = sheet.worksheet("Main")
+            now = datetime.now()
+            ws_main.append_row([
                 "https://f3southcary-aohealth.streamlit.app/~/+/pax",
                 "shipyard",
-                today_str,
+                now.strftime("%Y-%m-%d %H:%M"),
                 "Successful",
                 posts,
                 qs,
-                date_only,
-                "GitHub Actions Automated"
+                now.strftime("%Y-%m-%d"),
+                "GitHub Actions"
             ])
-            print("Appended run history to 'Main' tab successfully.")
-        except Exception as log_err:
-            print(f"Main tab logging skipped: {log_err}")
+            print("Appended log row to Main sheet.")
+        except Exception as main_e:
+            print(f"Could not write log to Main sheet: {main_e}")
 
     except Exception as e:
-        print(f"Error during execution: {e}")
+        print(f"ERROR in update_google_sheet: {e}")
         raise e
 
 if __name__ == "__main__":
