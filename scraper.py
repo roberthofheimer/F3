@@ -13,54 +13,36 @@ def scrape_f3_stats():
         page = browser.new_page(viewport={"width": 1280, "height": 800})
         
         print(f"Navigating to {url}...")
-        page.goto(url, wait_until="load", timeout=60000)
+        page.goto(url, wait_until="networkidle", timeout=60000)
+        time.sleep(5)
         
-        # Give Streamlit ample time to establish its WebSocket and render the UI
-        print("Waiting for Streamlit app hydration...")
-        time.sleep(8)
-        
-        print("Interacting with the PAX dropdown via JavaScript DOM query...")
-        # Execute native JS to find and click the combobox element reliably
-        clicked = page.evaluate('''() => {
-            // Search for Streamlit combobox role or select elements
-            const comboboxes = document.querySelectorAll('[role="combobox"]');
-            if (comboboxes.length > 0) {
-                comboboxes[0].click();
-                return true;
-            }
-            // Fallback to baseweb select container
-            const selects = document.querySelectorAll('[data-baseweb="select"]');
-            if (selects.length > 0) {
-                selects[0].click();
-                return true;
-            }
-            return false;
-        ''')
-        
-        print(f"Dropdown click executed: {clicked}")
-        time.sleep(2)
-        
-        # Type the PAX name and confirm
-        print("Typing 'shipyard'...")
-        page.keyboard.type("shipyard")
-        page.keyboard.press("Enter")
-        
-        # Wait for Streamlit to re-calculate and render the updated metrics
+        print("Attempting to select 'shipyard'...")
+        try:
+            # Click the Streamlit combobox directly using standard Playwright selectors
+            page.locator('[role="combobox"]').first.click(force=True, timeout=10000)
+            time.sleep(1)
+            page.keyboard.type("shipyard")
+            page.keyboard.press("Enter")
+            print("Successfully selected 'shipyard'.")
+        except Exception as e:
+            print(f"Primary combobox click note: {e}. Trying fallback selector...")
+            try:
+                page.locator('div[data-baseweb="select"]').first.click(force=True, timeout=5000)
+                time.sleep(1)
+                page.keyboard.type("shipyard")
+                page.keyboard.press("Enter")
+                print("Fallback selection successful.")
+            except Exception as e2:
+                print(f"Fallback selection note: {e2}")
+            
         print("Waiting for stats to compute and render...")
         time.sleep(8)
         
         posts, qs = None, None
         
-        # Scrape metric cards with retry loop
-        for attempt in range(12):
+        # Scrape metrics cards with retry loop
+        for attempt in range(10):
             metrics = page.locator('[data-testid="stMetric"]').all()
-            if not metrics:
-                # Check inside any frames if nested
-                for frame in page.frames:
-                    metrics = frame.locator('[data-testid="stMetric"]').all()
-                    if metrics:
-                        break
-                        
             if metrics:
                 for metric in metrics:
                     try:
@@ -79,7 +61,7 @@ def scrape_f3_stats():
                 if posts is not None and qs is not None:
                     print(f"SUCCESS: Found stats -> Posts: {posts}, Q's: {qs}")
                     break
-            time.sleep(2.5)
+            time.sleep(2)
             
         browser.close()
         
@@ -93,7 +75,6 @@ def update_google_sheet():
     
     print("Connecting to Google Sheets...")
     gc = gspread.service_account(filename='credentials.json')
-    # Using your target spreadsheet ID
     sheet = gc.open_by_key("11eASIqkZB6Bs5lNf44K3GPZ9vStgzYATcqLDH9s3L4I")
     
     # 1. Update Sheet1 cells A4 (Posts) and B4 (Qs)
