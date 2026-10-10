@@ -5,58 +5,61 @@ import gspread
 from datetime import datetime
 
 def scrape_f3_stats():
-    # Direct Streamlit app URL to avoid outer iframe wrapper delays
-    url = "https://f3southcary-aohealth.streamlit.app/~/+/pax?range=month&name=Shipyard"
+    url = "https://f3southcary-aohealth.streamlit.app/~/+/pax"
     
     with sync_playwright() as p:
         print("Launching Chromium browser...")
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-        page = context.new_page()
+        # Use a standard desktop viewport size so Streamlit renders fully
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
         
         print(f"Navigating to {url}...")
-        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        page.goto(url, wait_until="networkidle", timeout=60000)
         
-        # Streamlit websocket connection load wait
-        print("Waiting for Streamlit app to render content...")
+        # Wait for Streamlit to initialize completely
+        time.sleep(5)
         
-        # Try both direct page selector or nested frame selector
+        print("Selecting 'shipyard' from the PAX dropdown...")
+        try:
+            # Target the Streamlit selectbox / combobox component
+            combobox = page.locator('div[data-baseweb="select"]').first
+            combobox.click()
+            time.sleep(1)
+            
+            # Type 'shipyard' and hit Enter to filter stats for Shipyard
+            page.keyboard.type("shipyard")
+            page.keyboard.press("Enter")
+            
+            # Allow time for Streamlit to fetch data and re-render metrics
+            print("Waiting for stats to update after selection...")
+            time.sleep(6)
+        except Exception as e:
+            print(f"Warning during dropdown selection: {e}")
+            
         posts, qs = None, None
         
-        for attempt in range(15): # Loop up to ~30 seconds waiting for data
-            time.sleep(2)
-            try:
-                # Target all metric elements on the page or inside frames
-                metrics = page.locator('[data-testid="stMetric"]').all()
-                if not metrics:
-                    # Look inside iframe if nested
-                    for frame in page.frames:
-                        metrics = frame.locator('[data-testid="stMetric"]').all()
-                        if metrics:
-                            break
+        # Extract metrics from the page
+        for attempt in range(5):
+            metrics = page.locator('[data-testid="stMetric"]').all()
+            if metrics:
+                for metric in metrics:
+                    text = metric.inner_text()
+                    print(f"Found metric card text: {repr(text)}")
+                    lines = [line.strip() for line in text.split('\n') if line.strip()]
+                    
+                    if len(lines) >= 2:
+                        label = lines[0].lower()
+                        val_str = lines[1]
+                        if 'post' in label and val_str.isdigit():
+                            posts = int(val_str)
+                        elif 'q' in label and val_str.isdigit():
+                            qs = int(val_str)
                             
-                if metrics:
-                    for metric in metrics:
-                        text = metric.inner_text()
-                        print(f"Found card text: {repr(text)}")
-                        lines = [line.strip() for line in text.split('\n') if line.strip()]
-                        
-                        if len(lines) >= 2:
-                            label = lines[0].lower()
-                            val_str = lines[1]
-                            if 'post' in label and val_str.isdigit():
-                                posts = int(val_str)
-                            elif 'q' in label and val_str.isdigit():
-                                qs = int(val_str)
-                                
-                    if posts is not None and qs is not None:
-                        print(f"SUCCESS: Extracted Posts={posts}, Q's={qs}")
-                        break
-            except Exception as e:
-                print(f"Attempt {attempt + 1} checking DOM failed: {e}")
-                
+                if posts is not None and qs is not None:
+                    print(f"SUCCESS: Extracted Posts={posts}, Q's={qs}")
+                    break
+            time.sleep(2)
+            
         browser.close()
         
         if posts is None or qs is None:
@@ -73,13 +76,13 @@ def update_google_sheet():
         spreadsheet_id = "11eASIqkZB6Bs5lNf44K3GPZ9vStgzYATcqLDH9s3L4I"
         sheet = gc.open_by_key(spreadsheet_id)
         
-        # 1. Update Sheet1
+        # 1. Update Sheet1 target cells (A4 for Posts, B4 for Q's)
         ws1 = sheet.worksheet("Sheet1")
         ws1.update('A4', [[posts]])
         ws1.update('B4', [[qs]])
         print(f"Updated Sheet1 A4 -> {posts}, B4 -> {qs}")
         
-        # 2. Append history log to Main tab
+        # 2. Append history log to Main tab to match your tracking history
         try:
             ws_main = sheet.worksheet("Main")
             now = datetime.now()
@@ -91,11 +94,11 @@ def update_google_sheet():
                 posts,
                 qs,
                 now.strftime("%Y-%m-%d"),
-                "GitHub Actions"
+                "GitHub Actions Automated"
             ])
-            print("Appended log row to Main sheet.")
+            print("Appended run log to Main sheet successfully.")
         except Exception as main_e:
-            print(f"Could not write log to Main sheet: {main_e}")
+            print(f"Main tab logging skipped: {main_e}")
 
     except Exception as e:
         print(f"ERROR in update_google_sheet: {e}")
