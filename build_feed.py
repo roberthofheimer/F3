@@ -135,6 +135,17 @@ def main():
         json.dump(feed, f, indent=2)
     print(json.dumps(feed, indent=2))
 
+    # Also draw the picture TRMNL's Image Display plugin shows (docs/shipyard.png).
+    # A drawing problem should not stop the JSON from publishing.
+    try:
+        from render_png import render
+
+        png_path = os.path.join(os.path.dirname(os.path.abspath(out_path)), "shipyard.png")
+        render(feed, png_path)
+        print(f"Wrote {png_path}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARNING: could not draw PNG: {exc}")
+
 
 if __name__ == "__main__":
     main()
