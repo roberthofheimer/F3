@@ -130,6 +130,7 @@ def main():
         ).fetchall()
 
     feed = compute(rows, today)
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(feed, f, indent=2)
     print(json.dumps(feed, indent=2))
