@@ -10,10 +10,6 @@ DISPLAY_FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
 ]
-MONO_FONTS = [
-    "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
-]
 
 
 def load(paths, size):
@@ -30,7 +26,8 @@ def display(size):
 
 
 def mono(size):
-    return load(MONO_FONTS, size)
+    """Kept for compatibility: the same plain bold face, so every zero is a plain oval."""
+    return display(size)
 
 
 def spaced(draw, xy, text, font, fill, tracking=0, anchor="ls"):
@@ -64,25 +61,25 @@ def render(feed, path):
     # Header bar: name on the left, month on the right
     d.rectangle([0, 0, W - 1, 51], fill=BLACK)
     title = f"{feed['pax']} 112 Tracker".upper()
-    spaced(d, (22, 36), title, display(28), WHITE, tracking=3)
-    spaced(d, (W - 22, 36), feed["month_label"], display(28), WHITE, tracking=3, anchor="rs")
+    spaced(d, (22, 37), title, display(30), WHITE, tracking=3)
+    spaced(d, (W - 22, 37), feed["month_label"], display(30), WHITE, tracking=3, anchor="rs")
 
     # Two big panels: Posts and Qs
     mid = W // 2
-    d.rectangle([mid - 2, 52, mid + 1, 339], fill=BLACK)
+    d.rectangle([mid - 2, 52, mid + 1, 291], fill=BLACK)
 
     def panel(x0, x1, label, count, goal_n, foot):
-        spaced(d, (x0 + 22, 92), label, display(30), BLACK, tracking=3)
-        spaced(d, (x1 - 22, 90), f"GOAL {goal_n}", mono(16), BLACK, tracking=1, anchor="rs")
-        big = fit_font(mono, str(count), x1 - x0 - 60, 165)
-        d.text(((x0 + x1) / 2, 240), str(count), font=big, fill=BLACK, anchor="ms")
+        spaced(d, (x0 + 22, 90), label, display(32), BLACK, tracking=3)
+        spaced(d, (x1 - 22, 89), f"GOAL {goal_n}", display(24), BLACK, tracking=1, anchor="rs")
+        big = fit_font(display, str(count), x1 - x0 - 60, 118)
+        d.text(((x0 + x1) / 2, 200), str(count), font=big, fill=BLACK, anchor="ms")
         gx0, gx1, gap = x0 + 22, x1 - 22, 4
         seg = (gx1 - gx0 - gap * (goal_n - 1)) / goal_n
         for i in range(goal_n):
             a = gx0 + i * (seg + gap)
-            d.rectangle([round(a), 258, round(a + seg) - 1, 284],
+            d.rectangle([round(a), 214, round(a + seg) - 1, 238],
                         fill=BLACK if i < count else WHITE, outline=BLACK, width=3)
-        spaced(d, (gx0, 318), foot.upper(), mono(15), BLACK, tracking=1)
+        spaced(d, (gx0, 272), foot.upper(), display(22), BLACK, tracking=1)
 
     posts, pg = feed["posts"], feed["posts_goal"]
     qs, qg = feed["qs"], feed["q_goal"]
@@ -98,36 +95,37 @@ def render(feed, path):
     panel(mid + 2, W - 4, "Qs", qs, qg, q_foot)
 
     # Status bar, full width between the panels and the trend boxes
-    d.rectangle([0, 340, W - 1, 375], fill=BLACK)
+    d.rectangle([0, 292, W - 1, 331], fill=BLACK)
     status = ("\u2713 " if feed["passed"] else "") + feed["status"].upper()
-    size = 24
-    while size > 12 and sum(display(size).getlength(c) + 4 for c in status) - 4 > W - 80:
+    size = 28
+    while size > 14 and sum(display(size).getlength(c) + 4 for c in status) - 4 > W - 80:
         size -= 1
-    spaced(d, (W / 2, 366), status, display(size), WHITE, tracking=4, anchor="m")
+    spaced(d, (W / 2, 322), status, display(size), WHITE, tracking=4, anchor="m")
 
-    # Trend boxes
+    # Trend boxes: two-line labels so they can be big enough to read
     cells = [
-        ("112 months", str(feed["months_112"]), ""),
-        ("Current streak", str(feed["streak_current"]), " mo"),
-        ("Longest streak", str(feed["streak_longest"]), " mo"),
-        (f"Hit {pg} posts", str(feed["months_hit_posts"]), " mo"),
-        (f"Hit {qg} Q", str(feed["months_hit_q"]), " mo"),
+        (("112", "MONTHS"), str(feed["months_112"]), ""),
+        (("CURRENT", "STREAK"), str(feed["streak_current"]), " mo"),
+        (("LONGEST", "STREAK"), str(feed["streak_longest"]), " mo"),
+        ((f"HIT {pg}", "POSTS"), str(feed["months_hit_posts"]), " mo"),
+        ((f"HIT {qg}", "Q"), str(feed["months_hit_q"]), " mo"),
     ]
     cw = (W - 8) / 5
-    for i, (label, value, unit) in enumerate(cells):
+    for i, (lines, value, unit) in enumerate(cells):
         x = 4 + i * cw
         if i:
-            d.rectangle([round(x), 376, round(x) + 2, 439], fill=BLACK)
+            d.rectangle([round(x), 332, round(x) + 2, 423], fill=BLACK)
         tx = x + 14
-        spaced(d, (tx, 395), label.upper(), mono(12), BLACK, tracking=1)
-        vf = mono(30)
-        d.text((tx, 428), value, font=vf, fill=BLACK, anchor="ls")
+        spaced(d, (tx, 354), lines[0], display(20), BLACK, tracking=1)
+        spaced(d, (tx, 376), lines[1], display(20), BLACK, tracking=1)
+        vf = display(36)
+        d.text((tx, 414), value, font=vf, fill=BLACK, anchor="ls")
         if unit:
-            d.text((tx + vf.getlength(value), 428), unit, font=mono(13), fill=BLACK, anchor="ls")
+            d.text((tx + vf.getlength(value) + 4, 414), unit.strip(), font=display(22), fill=BLACK, anchor="ls")
 
     # Footer
-    d.rectangle([0, 440, W - 1, 443], fill=BLACK)
-    spaced(d, (22, 464), "F3 SOUTH CARY", mono(13), BLACK, tracking=1)
-    spaced(d, (W - 22, 464), f"AS OF {feed['as_of']}".upper(), mono(13), BLACK, tracking=1, anchor="rs")
+    d.rectangle([0, 424, W - 1, 427], fill=BLACK)
+    spaced(d, (22, 459), "F3 SOUTH CARY", display(20), BLACK, tracking=2)
+    spaced(d, (W - 22, 459), f"AS OF {feed['as_of']}".upper(), display(20), BLACK, tracking=2, anchor="rs")
 
     img.save(path, "PNG", optimize=True)
