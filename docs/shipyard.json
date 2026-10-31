@@ -7,8 +7,8 @@
   "posts_goal": 12,
   "q_goal": 1,
   "passed": true,
-  "status": "Done early",
-  "days_left": 1,
+  "status": "Done",
+  "days_left": 0,
   "posts_over": 3,
   "months_112": 31,
   "streak_current": 10,
@@ -16,5 +16,5 @@
   "months_hit_posts": 37,
   "months_hit_q": 39,
   "completed_months": 57,
-  "as_of": "Oct 30, 2026"
+  "as_of": "Oct 31, 2026"
 }
