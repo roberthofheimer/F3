@@ -18,5 +18,15 @@
   "months_hit_posts": 38,
   "months_hit_q": 40,
   "completed_months": 58,
-  "as_of": "Nov 5, 2026"
+  "as_of": "Nov 5, 2026",
+  "next_q": {
+    "date": "2026-11-13",
+    "ao": "Shepherd's Watch"
+  },
+  "q_box_lines": [
+    "Next Q on 11/13",
+    "(Shepherd's Watch)"
+  ],
+  "q_sheet_covers_through": "2026-12-26",
+  "q_sheet_error": null
 }
