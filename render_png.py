@@ -97,10 +97,12 @@ def render(feed, path):
     # Status bar, full width between the panels and the trend boxes
     d.rectangle([0, 292, W - 1, 331], fill=BLACK)
     status = ("\u2713 " if feed["passed"] else "") + feed["status"].upper()
-    size = 28
-    while size > 14 and sum(display(size).getlength(c) + 4 for c in status) - 4 > W - 80:
+    size, track = 28, 4
+    while size > 20 and sum(display(size).getlength(c) + track for c in status) - track > W - 40:
         size -= 1
-    spaced(d, (W / 2, 322), status, display(size), WHITE, tracking=4, anchor="m")
+        track = 4 if size >= 26 else 2
+    baseline = round(311.5 + 0.365 * size)  # keeps the text centred in the bar at any size
+    spaced(d, (W / 2, baseline), status, display(size), WHITE, tracking=track, anchor="m")
 
     # Trend boxes: two-line labels so they can be big enough to read
     cells = [
