@@ -31,6 +31,16 @@ def next_month(d):
     return dt.date(d.year + (d.month == 12), d.month % 12 + 1, 1)
 
 
+def mon_sat_days_left(today):
+    """Days left in the month after today, counting Monday through Saturday only."""
+    last = calendar.monthrange(today.year, today.month)[1]
+    return sum(
+        1
+        for day in range(today.day + 1, last + 1)
+        if dt.date(today.year, today.month, day).weekday() != 6  # 6 = Sunday
+    )
+
+
 def compute(rows, today):
     if not rows:
         sys.exit(f"No attendance rows found for PAX '{PAX}'. Check the spelling.")
@@ -69,8 +79,10 @@ def compute(rows, today):
         streak += 1
 
     days_left = calendar.monthrange(today.year, today.month)[1] - today.day
+    workdays_left = mon_sat_days_left(today)
     need_posts = max(0, POSTS_GOAL - now["posts"])
     need_qs = max(0, Q_GOAL - now["qs"])
+    blown = False
     if now["passed"]:
         status = "Done early" if days_left > 0 else "Done"
     else:
@@ -79,7 +91,14 @@ def compute(rows, today):
             bits.append(f"{need_posts} post{'s' * (need_posts != 1)}")
         if need_qs:
             bits.append(f"{need_qs} Q")
-        status = "Need " + " + ".join(bits)
+        need = " + ".join(bits)
+        # One workout a day, and a Q is also a post, so the days needed is the larger of the two.
+        blown = max(need_posts, need_qs) > workdays_left
+        day_word = "day" if workdays_left == 1 else "days"
+        if blown:
+            status = f"Need {need} in {workdays_left} {day_word} - YOU BLEW IT!"
+        else:
+            status = f"Need {need} ({workdays_left} {day_word} remaining)"
 
     feed = {
         "pax": PAX,
@@ -92,6 +111,8 @@ def compute(rows, today):
         "passed": now["passed"],
         "status": status,
         "days_left": days_left,
+        "workdays_left": workdays_left,
+        "blown": blown,
         "posts_over": max(0, now["posts"] - POSTS_GOAL),
         "months_112": sum(m["passed"] for m in completed),
         "streak_current": streak,
