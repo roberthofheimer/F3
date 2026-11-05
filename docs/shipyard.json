@@ -8,7 +8,7 @@
   "q_goal": 1,
   "passed": false,
   "status": "Need 12 posts + 1 Q",
-  "days_left": 26,
+  "days_left": 25,
   "posts_over": 0,
   "months_112": 32,
   "streak_current": 11,
@@ -16,5 +16,5 @@
   "months_hit_posts": 38,
   "months_hit_q": 40,
   "completed_months": 58,
-  "as_of": "Nov 4, 2026"
+  "as_of": "Nov 5, 2026"
 }
