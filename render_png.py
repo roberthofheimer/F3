@@ -104,26 +104,40 @@ def render(feed, path):
     baseline = round(311.5 + 0.365 * size)  # keeps the text centred in the bar at any size
     spaced(d, (W / 2, baseline), status, display(size), WHITE, tracking=track, anchor="m")
 
-    # Trend boxes: two-line labels so they can be big enough to read
-    cells = [
-        (("112", "MONTHS"), str(feed["months_112"]), ""),
-        (("CURRENT", "STREAK"), str(feed["streak_current"]), " mo"),
-        (("LONGEST", "STREAK"), str(feed["streak_longest"]), " mo"),
-        ((f"HIT {pg}", "POSTS"), str(feed["months_hit_posts"]), " mo"),
-        ((f"HIT {qg}", "Q"), str(feed["months_hit_q"]), " mo"),
-    ]
-    cw = (W - 8) / 5
-    for i, (lines, value, unit) in enumerate(cells):
-        x = 4 + i * cw
-        if i:
-            d.rectangle([round(x), 332, round(x) + 2, 423], fill=BLACK)
+    # Bottom row: Current streak and Longest streak on the left, next Q on the right
+    streak_w = 170
+    for i, (lines, value) in enumerate([
+        (("CURRENT", "STREAK"), str(feed["streak_current"])),
+        (("LONGEST", "STREAK"), str(feed["streak_longest"])),
+    ]):
+        x = 4 + i * streak_w
         tx = x + 14
         spaced(d, (tx, 354), lines[0], display(20), BLACK, tracking=1)
         spaced(d, (tx, 376), lines[1], display(20), BLACK, tracking=1)
         vf = display(36)
         d.text((tx, 414), value, font=vf, fill=BLACK, anchor="ls")
-        if unit:
-            d.text((tx + vf.getlength(value) + 4, 414), unit.strip(), font=display(22), fill=BLACK, anchor="ls")
+        d.text((tx + vf.getlength(value) + 4, 414), "mo", font=display(22), fill=BLACK, anchor="ls")
+        d.rectangle([x + streak_w - 3, 332, x + streak_w - 1, 423], fill=BLACK)
+
+    q_lines = [t.upper() for t in feed.get("q_box_lines", ["Q schedule unavailable"])]
+    qx0, qx1 = 4 + 2 * streak_w + 12, W - 4 - 12
+    max_w, box_top, box_bot = qx1 - qx0, 336, 420
+    base = 34
+    while True:
+        sizes = [base] + [round(base * 0.78)] * (len(q_lines) - 1)
+        widths = [
+            sum(display(sz).getlength(c) + 2 for c in ln) - 2 for ln, sz in zip(q_lines, sizes)
+        ]
+        height = sum(sz * 1.2 for sz in sizes)
+        if (max(widths) <= max_w and height <= box_bot - box_top) or base <= 16:
+            break
+        base -= 1
+    y = (box_top + box_bot) / 2 - height / 2
+    for ln, sz in zip(q_lines, sizes):
+        lh = sz * 1.2
+        spaced(d, ((qx0 + qx1) / 2, round(y + lh / 2 + 0.365 * sz)), ln, display(sz), BLACK,
+               tracking=2, anchor="m")
+        y += lh
 
     # Footer
     d.rectangle([0, 424, W - 1, 427], fill=BLACK)
