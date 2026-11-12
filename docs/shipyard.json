@@ -7,9 +7,9 @@
   "posts_goal": 12,
   "q_goal": 1,
   "passed": false,
-  "status": "Need 7 posts + 1 Q (16 days remaining)",
-  "days_left": 19,
-  "workdays_left": 16,
+  "status": "Need 7 posts + 1 Q (15 days remaining)",
+  "days_left": 18,
+  "workdays_left": 15,
   "blown": false,
   "posts_over": 0,
   "months_112": 32,
@@ -18,7 +18,7 @@
   "months_hit_posts": 38,
   "months_hit_q": 40,
   "completed_months": 58,
-  "as_of": "Nov 11, 2026",
+  "as_of": "Nov 12, 2026",
   "next_q": {
     "date": "2026-11-13",
     "ao": "Shepherd's Watch"
