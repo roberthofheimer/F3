@@ -104,23 +104,29 @@ def render(feed, path):
     baseline = round(311.5 + 0.365 * size)  # keeps the text centred in the bar at any size
     spaced(d, (W / 2, baseline), status, display(size), WHITE, tracking=track, anchor="m")
 
-    # Bottom row: Current streak and Longest streak on the left, next Q on the right
-    streak_w = 170
-    for i, (lines, value) in enumerate([
-        (("CURRENT", "STREAK"), str(feed["streak_current"])),
-        (("LONGEST", "STREAK"), str(feed["streak_longest"])),
-    ]):
-        x = 4 + i * streak_w
+    # Bottom row, left to right: Last Post, next Q, Current streak
+    left_w, right_w = 200, 160
+    mid_x0, mid_x1 = 4 + left_w, W - 4 - right_w
+
+    def label_block(x, w, lines, value, unit=""):
         tx = x + 14
         spaced(d, (tx, 354), lines[0], display(20), BLACK, tracking=1)
         spaced(d, (tx, 376), lines[1], display(20), BLACK, tracking=1)
-        vf = display(36)
+        size = 36
+        while size > 20 and display(size).getlength(value) + (display(22).getlength(unit) + 4 if unit else 0) > w - 28:
+            size -= 1
+        vf = display(size)
         d.text((tx, 414), value, font=vf, fill=BLACK, anchor="ls")
-        d.text((tx + vf.getlength(value) + 4, 414), "mo", font=display(22), fill=BLACK, anchor="ls")
-        d.rectangle([x + streak_w - 3, 332, x + streak_w - 1, 423], fill=BLACK)
+        if unit:
+            d.text((tx + vf.getlength(value) + 4, 414), unit, font=display(22), fill=BLACK, anchor="ls")
+
+    label_block(4, left_w, ("LAST", "POST"), feed.get("last_post_text", "\u2014").upper())
+    d.rectangle([mid_x0 - 3, 332, mid_x0 - 1, 423], fill=BLACK)
+    label_block(mid_x1, right_w, ("CURRENT", "STREAK"), str(feed["streak_current"]), "mo")
+    d.rectangle([mid_x1 - 3, 332, mid_x1 - 1, 423], fill=BLACK)
 
     q_lines = [t.upper() for t in feed.get("q_box_lines", ["Q schedule unavailable"])]
-    qx0, qx1 = 4 + 2 * streak_w + 12, W - 4 - 12
+    qx0, qx1 = mid_x0 + 12, mid_x1 - 12
     max_w, box_top, box_bot = qx1 - qx0, 336, 420
     base = 34
     while True:
