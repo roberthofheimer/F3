@@ -137,7 +137,7 @@ def compute(rows, today):
         "months_hit_posts": sum(m["posts"] >= POSTS_GOAL for m in completed),
         "months_hit_q": sum(m["qs"] >= Q_GOAL for m in completed),
         "completed_months": len(completed),
-        "as_of": today.strftime("%b %-d, %Y"),
+        "as_of": today.strftime("%b %-d, %Y at %-I:%M %p"),
     }
     return feed
 
