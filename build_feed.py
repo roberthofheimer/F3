@@ -142,6 +142,17 @@ def compute(rows, today):
     return feed
 
 
+def last_post_text(last, today):
+    """'Today', 'Yesterday', or the date as m/d."""
+    if last is None:
+        return "None yet"
+    if last == today:
+        return "Today"
+    if last == today - dt.timedelta(days=1):
+        return "Yesterday"
+    return f"{last.month}/{last.day}"
+
+
 def fetch_q_tab(gid):
     url = f"https://docs.google.com/spreadsheets/d/{Q_SHEET_ID}/export?format=csv&gid={gid}"
     req = urllib.request.Request(url, headers={"User-Agent": "trmnl-112-feed"})
@@ -261,8 +272,15 @@ def main():
             """,
             [local, PAX],
         ).fetchall()
+        last_post = duckdb.connect().execute(
+            "select max(date) from read_parquet(?) where pax = ?", [local, PAX]
+        ).fetchone()[0]
+        if isinstance(last_post, dt.datetime):
+            last_post = last_post.date()
 
     feed = compute(rows, today)
+    feed["last_post"] = last_post.isoformat() if last_post else None
+    feed["last_post_text"] = last_post_text(last_post, today)
 
     # Next Q from the Q sheet. A sheet problem must not stop the rest of the feed.
     entries, covered_to, q_error = [], None, None
