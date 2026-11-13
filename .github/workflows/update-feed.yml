@@ -1,8 +1,8 @@
-name: Update Shipyard 112 feed
+name: Update Shipyard 112 picture
 
 on:
   schedule:
-    - cron: "17 * * * *"   # every hour at :17
+    - cron: "0 * * * *"    # every hour, on the hour (GitHub often starts these a few minutes late)
   workflow_dispatch: {}      # lets you run it by hand from the Actions tab
 
 permissions:
@@ -21,18 +21,19 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y fonts-dejavu-extra fonts-liberation
           pip install duckdb pillow
-      - name: Build feed and image
+      - name: Draw the picture
         env:
           PAX: Shipyard
-        run: python build_feed.py docs/shipyard.json
+        run: python build_feed.py docs/shipyard.png
       - name: Commit if changed
         run: |
           git config user.name "feed-bot"
           git config user.email "feed-bot@users.noreply.github.com"
-          git add docs/shipyard.json docs/shipyard.png
+          git rm -q --ignore-unmatch docs/shipyard.json   # the old JSON file is no longer used
+          git add docs/shipyard.png
           if git diff --cached --quiet; then
             echo "No change"
           else
-            git commit -m "Update Shipyard 112 feed"
+            git commit -m "Update Shipyard 112 picture"
             git push
           fi
