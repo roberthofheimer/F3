@@ -1,9 +1,9 @@
-"""Build shipyard.json: one PAX's 112 tracker numbers for a TRMNL display.
+"""Draw one PAX's 112 tracker as an 800x480 PNG for a TRMNL display.
 
 Reads the F3 South Cary attendance file the stats site uses, applies the 112 rule
-(12 posts and 1 Q in a calendar month), and writes a small JSON file.
+(12 posts and 1 Q in a calendar month), reads the Q sheet for the next Q, and draws the picture.
 
-Usage:  python build_feed.py [output_path]
+Usage:  python build_feed.py [output_png_path]
 Env:    PAX   name exactly as it appears on the stats site (default: Shipyard)
 """
 import calendar
@@ -137,9 +137,14 @@ def compute(rows, today):
         "months_hit_posts": sum(m["posts"] >= POSTS_GOAL for m in completed),
         "months_hit_q": sum(m["qs"] >= Q_GOAL for m in completed),
         "completed_months": len(completed),
-        "as_of": today.strftime("%b %-d, %Y at %-I:%M %p"),
+        "as_of": today.strftime("%b %-d, %Y"),
     }
     return feed
+
+
+def format_as_of(now):
+    """e.g. 'Nov 12, 11:01 AM ET' (time of this run, Eastern)."""
+    return f"{now.strftime('%b')} {now.day}, {now.hour % 12 or 12}:{now.minute:02d} {'AM' if now.hour < 12 else 'PM'} ET"
 
 
 def last_post_text(last, today):
@@ -249,8 +254,9 @@ def q_box_lines(found, covered_to, today, error=None):
 
 
 def main():
-    out_path = sys.argv[1] if len(sys.argv) > 1 else "shipyard.json"
-    today = dt.datetime.now(TZ).date()
+    png_path = sys.argv[1] if len(sys.argv) > 1 else "shipyard.png"
+    now = dt.datetime.now(TZ)
+    today = now.date()
 
     with tempfile.TemporaryDirectory() as tmp:
         local = os.environ.get("ATTENDANCE_FILE")  # optional: use a local copy instead of downloading
@@ -279,6 +285,7 @@ def main():
             last_post = last_post.date()
 
     feed = compute(rows, today)
+    feed["as_of"] = format_as_of(now)
     feed["last_post"] = last_post.isoformat() if last_post else None
     feed["last_post_text"] = last_post_text(last_post, today)
 
@@ -295,21 +302,14 @@ def main():
     feed["q_sheet_covers_through"] = covered_to.isoformat() if covered_to else None
     feed["q_sheet_error"] = q_error
 
-    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
-    with open(out_path, "w") as f:
-        json.dump(feed, f, indent=2)
+    # The numbers are only printed to the run log; the picture is the one output.
     print(json.dumps(feed, indent=2))
 
-    # Also draw the picture TRMNL's Image Display plugin shows (docs/shipyard.png).
-    # A drawing problem should not stop the JSON from publishing.
-    try:
-        from render_png import render
+    from render_png import render
 
-        png_path = os.path.join(os.path.dirname(os.path.abspath(out_path)), "shipyard.png")
-        render(feed, png_path)
-        print(f"Wrote {png_path}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"WARNING: could not draw PNG: {exc}")
+    os.makedirs(os.path.dirname(os.path.abspath(png_path)), exist_ok=True)
+    render(feed, png_path)
+    print(f"Wrote {png_path}")
 
 
 if __name__ == "__main__":
