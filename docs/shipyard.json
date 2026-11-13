@@ -7,9 +7,9 @@
   "posts_goal": 12,
   "q_goal": 1,
   "passed": false,
-  "status": "Need 6 posts + 1 Q (15 days remaining)",
-  "days_left": 18,
-  "workdays_left": 15,
+  "status": "Need 6 posts + 1 Q (14 days remaining)",
+  "days_left": 17,
+  "workdays_left": 14,
   "blown": false,
   "posts_over": 0,
   "months_112": 32,
@@ -18,16 +18,13 @@
   "months_hit_posts": 38,
   "months_hit_q": 40,
   "completed_months": 58,
-  "as_of": "Nov 12, 2026 at 12:00 AM",
+  "as_of": "Nov 13, 2026 at 12:00 AM",
   "last_post": "2026-11-12",
-  "last_post_text": "Today",
-  "next_q": {
-    "date": "2026-11-13",
-    "ao": "Shepherd's Watch"
-  },
+  "last_post_text": "Yesterday",
+  "next_q": null,
   "q_box_lines": [
-    "Next Q on 11/13",
-    "(Shepherd's Watch)"
+    "You're not signed up to Q",
+    "again this month"
   ],
   "q_sheet_covers_through": "2026-12-26",
   "q_sheet_error": null
